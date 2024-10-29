@@ -6,15 +6,7 @@ from aiogram.types import Message
 from aiogram.filters import Command
 
 from config import BOT_TOKEN
-
-
-async def get_start(message: Message, bot: Bot):
-    """Приветствие."""
-    await message.answer(
-        f'Привет, {message.from_user.first_name}!\n'
-        'Я бот, который будет уведомлять тебя о непрочитанных сообщениях.',
-        parse_mode='HTML'
-    )
+from handlers import get_start, process_email, process_password, Form
 
 
 async def start():
@@ -30,6 +22,9 @@ async def start():
         get_start,
         Command(commands=['start', 'run'])
     )
+
+    dp.message.register(process_email, Form.EMAIL_STATE)
+    dp.message.register(process_password, Form.PASSWORD_STATE)
 
     try:
         await dp.start_polling(bot)

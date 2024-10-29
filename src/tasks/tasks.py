@@ -1,37 +1,53 @@
-import smtplib
-from email.message import EmailMessage
+import httpx
+import asyncio
 
 from celery import Celery
+from sqlalchemy.future import select
 
-from config import SMTP_PASSWORD, SMTP_USER
-
-SMTP_HOST = "smtp.gmail.com"
-SMTP_PORT = 465
+from database import async_session_maker
+from chat.models import Message
+from auth.models import User
+from config import BOT_TOKEN
 
 celery = Celery('tasks', broker='redis://localhost:6379')
+celery.config_from_object("tasks.celeryconfig")
 
 
-def get_email_template_dashboard(username: str):
-    email = EmailMessage()
-    email['Subject'] = 'Натрейдил Отчет Дашборд'
-    email['From'] = SMTP_USER
-    email['To'] = SMTP_USER
-
-    email.set_content(
-        '<div>'
-        f'<h1 style="color: red;">Здравствуйте, {username}, а вот и ваш отчет. Зацените 😊</h1>'
-        '<img src="https://static.vecteezy.com/system/resources/previews/008/295/031/original/custom-relationship'
-        '-management-dashboard-ui-design-template-suitable-designing-application-for-android-and-ios-clean-style-app'
-        '-mobile-free-vector.jpg" width="600">'
-        '</div>',
-        subtype='html'
-    )
-    return email
+async def send_telegram_notification(telegram_id: int, message: str):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json={"chat_id": telegram_id, "text": message})
+        if response.status_code != 200:
+            print(f"Ошибка при отправке уведомления: {response.status_code}, {response.text}")
 
 
 @celery.task
-def send_email_report_dashboard(username: str):
-    email = get_email_template_dashboard(username)
-    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as server:
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.send_message(email)
+def notify_unread_messages():
+    asyncio.run(check_and_notify_unread_messages())
+
+
+async def check_and_notify_unread_messages():
+    async with async_session_maker() as session:
+        # Запрос на выборку пользователей с непрочитанными сообщениями
+        result = await session.execute(
+            select(User)
+            .join(Message, Message.receiver_id == User.id)
+            .where(Message.read == False, User.telegram_id != None)  # Добавлен фильтр на telegram_id
+            .distinct()
+        )
+        users = result.scalars().all()
+        print(f"Найдено {len(users)} пользователей с непрочитанными сообщениями")
+
+        for user in users:
+            print(user.username)
+            # Получение непрочитанных сообщений
+            result = await session.execute(
+                select(Message).where(Message.receiver_id == user.id, Message.read == False)
+            )
+            messages = result.scalars().all()
+
+            # Отправка уведомления пользователю через бота
+            if messages:
+                unread_count = len(messages)
+                message_text = f"У вас {unread_count} непрочитанных сообщений."
+                await send_telegram_notification(user.telegram_id, message_text)

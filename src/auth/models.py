@@ -6,6 +6,7 @@ from typing import List
 from fastapi_users_db_sqlalchemy import SQLAlchemyBaseUserTable
 from sqlalchemy import (TIMESTAMP, Boolean, Column, Integer, String)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from fastapi_users.password import PasswordHelper
 
 from database import Base
 
@@ -20,6 +21,9 @@ class User(SQLAlchemyBaseUserTable[int], Base):
     username: Mapped[str] = mapped_column(
         String(length=320), unique=True, index=True, nullable=False
     )
+    telegram_id: Mapped[str] = mapped_column(
+        String(length=320), unique=True, nullable=True
+    )
     registered_at: Mapped[datetime] = mapped_column(TIMESTAMP, default=datetime.utcnow)
     hashed_password: Mapped[str] = mapped_column(
         String(length=1024), nullable=False
@@ -31,13 +35,7 @@ class User(SQLAlchemyBaseUserTable[int], Base):
     is_verified: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
-
-    # sent_messages: Mapped[List["Message"]] = relationship(
-    #     "Message", back_populates="sender", lazy='dynamic'
-    # )
-    # received_messages: Mapped[List["Message"]] = relationship(
-    #     "Message", back_populates="receiver", lazy='dynamic'
-    # )
+    password_helper = PasswordHelper()
 
     sent_messages: Mapped[List["Message"]] = relationship(
         "Message",
@@ -50,8 +48,6 @@ class User(SQLAlchemyBaseUserTable[int], Base):
         back_populates="receiver"
     )
 
-    # @classmethod
-    # def __init_subclass__(cls):
-    #     if cls is User:
-    #         cls.sent_messages = relationship("Message", back_populates="sender")
-    #         cls.received_messages = relationship("Message", back_populates="receiver")
+    def verify_password(self, password: str) -> bool:
+        """Проверка пароля пользователя."""
+        return self.password_helper.verify_and_update(password, self.hashed_password)

@@ -43,12 +43,16 @@ const validateForm = fields => fields.every(field => field.trim() !== '');
 
 const sendRequest = async (url, data) => {
     try {
-        const urlEncodedData = new URLSearchParams(data).toString();
-        console.log(JSON.stringify(data))
+        const body_data = url === 'login'
+            ? new URLSearchParams(data).toString()
+            : JSON.stringify(data)
+        const content_type = url === 'login'
+            ? "application/x-www-form-urlencoded"
+            : "application/json"
         const response = await fetch('auth/' + url, {
             method: "POST",
-            headers: {"Content-Type": "application/x-www-form-urlencoded",},
-            body: urlEncodedData
+            headers: {"Content-Type": content_type,},
+            body: body_data
         });
 
         if (response.ok) {

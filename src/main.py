@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.base_config import auth_backend, fastapi_users
 from auth.models import User
-from auth.schemas import UserRead, UserCreate, UserUpdate
+from auth.schemas import UserRead, UserCreate
 from chat.router import router as router_chat
 from database import get_async_session
 
@@ -56,6 +56,25 @@ async def get_all_users(
     return users
 
 
+@app.post("/users/telegram", tags=["Users"])
+async def add_telegram(
+    email: str,
+    password: str,
+    telegram_id: str,
+    session: AsyncSession = Depends(get_async_session),
+):
+    result = await session.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+
+    if not user or not user.verify_password(password):
+        raise HTTPException(status_code=404, detail="Неправильный email или пароль.")
+
+    user.telegram_id = telegram_id
+    await session.commit()
+
+    return {"status": "User added telegram_id"}
+
+
 app.include_router(
     fastapi_users.get_auth_router(auth_backend),
     prefix="/auth",
@@ -66,12 +85,6 @@ app.include_router(
     fastapi_users.get_register_router(UserRead, UserCreate),
     prefix="/auth",
     tags=["Auth"],
-)
-
-app.include_router(
-    fastapi_users.get_users_router(UserRead, UserUpdate),
-    prefix="/users",
-    tags=["Users"],
 )
 
 app.include_router(router_chat)

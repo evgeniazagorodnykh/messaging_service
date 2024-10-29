@@ -131,3 +131,23 @@
 #sendButton:hover:not(:disabled) {
     background-color: #0056b3;
 }
+
+.header-buttons {
+    display: flex; /* Размещаем кнопки в строку */
+    align-items: center; /* Центрируем кнопки по вертикали */
+}
+
+.telegram-link {
+    display: inline-block; /* Чтобы кнопка была равномерно отцентрирована */
+    padding: 8px 12px; /* Добавьте padding для создания отступов */
+    font-size: 14px; /* Установите подходящий размер шрифта */
+    text-align: center; /* Центрирование текста */
+    background-color: #d63384; /* Цвет фона кнопки (соответствует стилю) */
+    color: white; /* Цвет текста */
+    border-radius: 4px; /* Сглаживание углов */
+    text-decoration: none; /* Убирает подчеркивание */
+}
+
+.telegram-link:hover {
+    background-color: #5f007f; /* Цвет фона при наведении */
+}

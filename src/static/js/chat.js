@@ -35,35 +35,61 @@ async function selectUser(userId, userName, event) {
 
     document.getElementById('logoutButton').onclick = logout;
 
-    await loadMessages(userId);
+    const messages = await loadMessages(userId);
+
+    messages.forEach(async (message) => {
+        if (!message.read && message.sender_id == selectedUserId) {
+            await markMessageAsRead(message.id);
+        }
+    });
+
     connectWebSocket();
 }
+
+
+// Функция для отметки сообщения как прочитанного
+async function markMessageAsRead(messageId) {
+    try {
+        const response = await fetch(`/chat/messages/${messageId}/read`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Ошибка HTTP: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Ошибка при отметке сообщения как прочитанного:', error);
+    }
+}
+
 
 // Загрузка сообщений из REST API
 async function loadMessages(userId) {
     try {
         const response = await fetch(`/chat/messages/${userId}`);
         
-        // Проверка успешности ответа
         if (!response.ok) {
             throw new Error(`Ошибка HTTP: ${response.status}`);
         }
 
         const messages = await response.json();
 
-        // Проверка, что messages является массивом
         if (!Array.isArray(messages)) {
             throw new Error('Полученные данные не являются массивом');
         }
-        // const response = await fetch(`/chat/messages/${userId}`);
-        // const messages = await response.json();
 
         const messagesContainer = document.getElementById('messages');
         messagesContainer.innerHTML = messages.map(message =>
             createMessageElement(message.content, message.recipient_id)
         ).join('');
+
+        return messages; // Возвращаем сообщения для дальнейшего использования
     } catch (error) {
         console.error('Ошибка загрузки сообщений:', error);
+        return []; // Возвращаем пустой массив в случае ошибки
     }
 }
 
